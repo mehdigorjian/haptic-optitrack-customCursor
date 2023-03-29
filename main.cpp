@@ -1,9 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////
-// OpenHaptics QuickHaptics - TeethCavityPick example
-// SensAble Technologies, Woburn, MA
-// November 11, 2008
-// Programmer: Venkat Gourishankar
-//////////////////////////////////////////////////////////////////////////////
 #include <HDU/hduMath.h>
 #include <HDU/hduMatrix.h>
 #include <QHHeadersGLUT.h>  //Include all necessary headers
@@ -154,7 +148,6 @@ void glut_main(int argc, char** argv) {
     glutAttachMenu(GLUT_RIGHT_BUTTON);
 
     qhStart();  // Set everything in motion
-    // return 0;
 }
 
 void button1DownCallback(unsigned int ShapeID) {
@@ -163,9 +156,6 @@ void button1DownCallback(unsigned int ShapeID) {
 }
 
 void button1UpCallback(unsigned int ShapeID) {
-    // draggingGumModel = false;
-    // draggingTeethModel = false;
-    // draggingCavityFillModel = false;
 }
 
 void touchCallback(unsigned int ShapeID) {
@@ -173,8 +163,6 @@ void touchCallback(unsigned int ShapeID) {
 }
 
 void graphicsCallback() {
-    // hduMatrix globalDragTransform;
-
     /////////////////////////////////////////////////////////////////////////////////////////////// getting cursor position
     Cursor* localDeviceCursor = Cursor::searchCursor("devCursor");  // Get a pointer to the cursor
     hduVector3Dd localCursorPosition;
@@ -199,25 +187,8 @@ void graphicsCallback() {
 ****************************************************************************************/
 void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata) {
     DataTransportClass* localdataObject = (DataTransportClass*)userdata;  // Typecast the pointer passed in appropriately
-    HDdouble instRate = 0.0;
-    HDdouble deltaT = 0.0;
-    static float counter = 0.0;
-    float degInRad = 0.0;
     static int counter1 = 0;
-
-    // Get the time delta since the last update.
-    hdGetDoublev(HD_INSTANTANEOUS_UPDATE_RATE, &instRate);
-    deltaT = 1.0 / instRate;
-    counter += deltaT;
-    degInRad = counter * 20 * 3.14159 / 180;
-
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////// transforming object
-    // hduVector3Dd ModelPos1 = localdataObject->c1->getTranslation();
-    // localdataObject->c1->setTranslation(-ModelPos1);
-
-    // hduVector3Dd ModelPos2 = localdataObject->c2->getTranslation();
-    // localdataObject->c2->setTranslation(-ModelPos2);
-
     Eigen::Vector3f p = (opti->rigidObjects)[1]->position;
 
     ocurr_temp[0] = (double)p[0];
@@ -246,18 +217,14 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
 
     // printf("************************************************************** %i", haptic_ptsB.size());
 
-    // HDdouble x = (HDdouble)(-p[0]);
-    // HDdouble y = (HDdouble)(p[1]);
-    // HDdouble z = (HDdouble)(p[2]);
-
     HDdouble x = (HDdouble)(opti_to_hapt[0]);
     HDdouble y = (HDdouble)(opti_to_hapt[2]);
     HDdouble z = (HDdouble)(opti_to_hapt[1]);
 
     // printf("-------------------- %f, %f, %f\n", x, z, y);
-    double rX;  // = (opti->rigidObjects)[1]->rotation[0] * 3.14159 / 180.0;
-    double rY;  // = (opti->rigidObjects)[1]->rotation[1] * 3.14159 / 180.0;
-    double rZ;  // = (opti->rigidObjects)[1]->rotation[2] * 3.14159 / 180.0;
+    double rX;
+    double rY;
+    double rZ;
 #pragma opm parallel
     {
         rX = (opti->rigidObjects)[1]->rotation[0] * 3.14159 / 180.0;
@@ -265,11 +232,11 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
         rZ = (opti->rigidObjects)[1]->rotation[2] * 3.14159 / 180.0;
     }
 
-    hduMatrix rZM;  // = hduMatrix::createRotationAroundZ(rZ);
-    hduMatrix rYM;  // = hduMatrix::createRotationAroundY(rY);
-    hduMatrix rXM;  // = hduMatrix::createRotationAroundX(rX);
+    hduMatrix rZM;
+    hduMatrix rYM;
+    hduMatrix rXM;
 
-    hduMatrix rxyz;  // = rZM * rYM * rXM;
+    hduMatrix rxyz;
 
 #pragma opm parallel
     {
@@ -286,11 +253,6 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
     // localdataObject->c1->setScaleInPlace(0.3);
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // WorldToDevice.multVecMatrix(localdataObject->Model->getTranslation(), skullPositionDS);  // Convert the position of the sphere from world space to device space
-
-    // hlCacheGetDoublev(cache, HL_PROXY_POSITION, proxyPosition);  // Get the position of the proxy in Device Coordinates (All HL commands in the servo loop callback fetch values in device coordinates)
-
     // forceVec = forceField(localdataObject->c1->getTranslation(), localdataObject->c2->getTranslation(), multiplierFactor, chargeRadius);  // Calculate the force
 
     // counter1++;
