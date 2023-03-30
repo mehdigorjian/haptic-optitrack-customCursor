@@ -43,20 +43,19 @@ class DataTransportClass  // This class carried data into the ServoLoop thread
     TriMesh* c1;
     TriMesh* c2;
 };
+
 double chargeRadius = 10.0;  // This variable defines the radius around the charge when the inverse square law changes to a spring force law.
 double multiplierFactor = 40.0;
 hduMatrix WorldToDevice;  // This matrix contains the World Space to DeviceSpace Transformation
 hduVector3Dd forceVec;    // This variable contains the force vector.
 
-// Callback functions
+// functions signatures
 void glut_main(int, char**);
 void button1DownCallback(unsigned int ShapeID);
 void button1UpCallback(unsigned int ShapeID);
 void touchCallback(unsigned int ShapeID);
-
 void graphicsCallback(void);
 void glutMenuFunction(int);
-
 void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata);                    // Servo loop callback
 void HLCALLBACK startEffectCB(HLcache* cache, void* userdata);                                        // Servo Loop callback
 void HLCALLBACK stopEffectCB(HLcache* cache, void* userdata);                                         // Servo Loop callback
@@ -83,7 +82,8 @@ void glut_main(int argc, char** argv) {
     DataTransportClass dataObject;  // Initialize an Object to transport data into the servoloop callback
 
     // Load cube1 model
-    dataObject.c1 = new TriMesh("Models/t21.obj");
+    // dataObject.c1 = new TriMesh("Models/t21.obj");
+    dataObject.c1 = new TriMesh("Models/pp11.obj");
     dataObject.c1->setName("cube1");
     dataObject.c1->setShapeColor(1.0, 0.5, 0.65);
     dataObject.c1->setRotation(hduVector3Dd(1.0, 0.0, 0.0), 45.0);
@@ -95,7 +95,8 @@ void glut_main(int argc, char** argv) {
     DisplayObject->tell(dataObject.c1);  // Tell quickhaptics that cube exists
 
     // Load cube2 model
-    dataObject.c2 = new TriMesh("Models/c21.obj");
+    // dataObject.c2 = new TriMesh("Models/c21.obj");
+    dataObject.c2 = new TriMesh("Models/rr11.obj");
     dataObject.c2->setName("cube2");
     dataObject.c2->setShapeColor(0.1, 0.5, 0.65);
     dataObject.c2->setRotation(hduVector3Dd(1.0, 0.0, 0.0), 45.0);
@@ -167,7 +168,7 @@ void graphicsCallback() {
     Cursor* localDeviceCursor = Cursor::searchCursor("devCursor");  // Get a pointer to the cursor
     hduVector3Dd localCursorPosition;
     localCursorPosition = localDeviceCursor->getPosition();  // Get the local cursor position in World Space
-    printf("--------------------------------------------------------- %f, %f, %f\n", localCursorPosition[0], localCursorPosition[1], localCursorPosition[2]);
+    // printf("--------------------------------------------------------- %f, %f, %f\n", localCursorPosition[0], localCursorPosition[1], localCursorPosition[2]);
 
     hcurr_temp[0] = (double)localCursorPosition[0];
     hcurr_temp[1] = (double)localCursorPosition[1];
@@ -337,7 +338,6 @@ void glutMenuFunction(int MenuID) {
     if (MenuID == 2) {
         // calibrate
         t = std::make_shared<coordinateTransform>(optitrack_ptsA, haptic_ptsB);
-        // t = new coordinateTransform(optitrack_ptsA, haptic_ptsB);
         // std::cout << "----------Transformation Matrix----------" << std::endl;
         t->calculateTransformMatrix();
         // std::cout << t.transformMat << std::endl;
