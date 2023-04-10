@@ -298,15 +298,15 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
         rbY = std::atan2(-rmat[2][0], std::sqrt(rmat[2][1] * rmat[2][1] + rmat[2][2] * rmat[2][2])) * 180.0 / 3.14159;
         rbZ = std::atan2(rmat[1][0], rmat[0][0]) * 180.0 / 3.14159;
 
-        Eigen::Vector3d rotation(rbX, rbY, rbZ);
-        double angleBolt = rotation.norm();
-        Eigen::Vector3d axisBolt = rotation.normalized();
+        Eigen::Vector3d rotationB(rbX, rbY, rbZ);
+        double angleBolt = rotationB.norm();
+        Eigen::Vector3d axisBolt = rotationB.normalized();
         Eigen::Quaterniond qB(Eigen::AngleAxisd(angleBolt, axisBolt));
 
-        hpt_obj_q.x = q.x();
-        hpt_obj_q.y = q.y();
-        hpt_obj_q.z = q.z();
-        hpt_obj_q.w = q.w();
+        hpt_obj_q.x = qB.x();
+        hpt_obj_q.y = qB.y();
+        hpt_obj_q.z = qB.z();
+        hpt_obj_q.w = qB.w();
     }
     // std::cout << "====================================" << rbX << ", " << rbY << ", " << rbZ << std::endl;
 
