@@ -1,5 +1,5 @@
 import os
-fileName = "pp1.obj"
+fileName = "grip4.obj"
 filePath = "Models/" + fileName
 file1 = open(filePath, 'r')
 

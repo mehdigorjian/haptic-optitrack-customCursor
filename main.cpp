@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 // #include <stack>
+
 #include <thread>  // multithreading (using libs=-lpthread)
 #include <vector>
 
@@ -23,7 +24,9 @@
 #include "Object.h"
 #include "coordinateTransform.h"
 #include "omp.h"  // parallel for loop (using libs=-lgomp and CXXFLAGS=-fopenmp)
-
+//
+// #include <reactphysics3d/reactphysics3d.h>
+#include "reactphysics3d/reactphysics3d.h"
 Eigen::Vector3d hcurr_temp;
 Eigen::Vector3d ocurr_temp;
 
@@ -34,8 +37,14 @@ bool matrix_flag = false;
 std::shared_ptr<coordinateTransform> t;  // = std::make_shared<coordinateTransform>();
 std::shared_ptr<OptiTrack> opti = std::make_shared<OptiTrack>();
 
+TriMesh* obj1 = nullptr;
+TriMesh* obj2 = nullptr;
+
 Text* notCallibrate = nullptr;
 Text* calibInstruction = nullptr;
+
+reactphysics3d::Quaternion opti_obj_q;
+reactphysics3d::Quaternion hpt_obj_q;
 
 class DataTransportClass  // This class carried data into the ServoLoop thread
 {
@@ -44,7 +53,7 @@ class DataTransportClass  // This class carried data into the ServoLoop thread
     TriMesh* c2;
 };
 
-double chargeRadius = 10.0;  // This variable defines the radius around the charge when the inverse square law changes to a spring force law.
+double chargeRadius = 15.0;  // This variable defines the radius around the charge when the inverse square law changes to a spring force law.
 double multiplierFactor = 40.0;
 hduMatrix WorldToDevice;  // This matrix contains the World Space to DeviceSpace Transformation
 hduVector3Dd forceVec;    // This variable contains the force vector.
@@ -72,18 +81,17 @@ int main(int argc, char** argv) {
 
 void glut_main(int argc, char** argv) {
     QHGLUT* DisplayObject = new QHGLUT(argc, argv);  // create a display window
-
-    DeviceSpace* deviceSpace = new DeviceSpace;  // Find a Phantom device named "Default PHANToM"
-    DisplayObject->tell(deviceSpace);            // tell Quickhaptics that Omni exists
+    DeviceSpace* deviceSpace = new DeviceSpace;      // Find a Phantom device named "Default PHANToM"
+    DisplayObject->tell(deviceSpace);                // tell Quickhaptics that Omni exists
     DisplayObject->setBackgroundColor(0.0, 0.0, 0.6);
-
     DisplayObject->setHapticWorkspace(hduVector3Dd(-40, -40.0, -17.0), hduVector3Dd(95, 45.0, 17.0));
 
     DataTransportClass dataObject;  // Initialize an Object to transport data into the servoloop callback
 
     // Load cube1 model
-    // dataObject.c1 = new TriMesh("Models/t21.obj");
-    dataObject.c1 = new TriMesh("Models/pp11.obj");
+    dataObject.c1 = new TriMesh("Models/t21.obj");
+    // dataObject.c1 = new TriMesh("Models/pp11.obj");
+    obj1 = dataObject.c1;
     dataObject.c1->setName("cube1");
     dataObject.c1->setShapeColor(1.0, 0.5, 0.65);
     dataObject.c1->setRotation(hduVector3Dd(1.0, 0.0, 0.0), 45.0);
@@ -95,8 +103,9 @@ void glut_main(int argc, char** argv) {
     DisplayObject->tell(dataObject.c1);  // Tell quickhaptics that cube exists
 
     // Load cube2 model
-    // dataObject.c2 = new TriMesh("Models/c21.obj");
-    dataObject.c2 = new TriMesh("Models/rr11.obj");
+    dataObject.c2 = new TriMesh("Models/c21.obj");
+    // dataObject.c2 = new TriMesh("Models/rr11.obj");
+    obj2 = dataObject.c2;
     dataObject.c2->setName("cube2");
     dataObject.c2->setShapeColor(0.1, 0.5, 0.65);
     dataObject.c2->setRotation(hduVector3Dd(1.0, 0.0, 0.0), 45.0);
@@ -124,12 +133,15 @@ void glut_main(int argc, char** argv) {
     DisplayObject->tell(text1);
 
     Cursor* OmniCursor = new Cursor("Models/myCurser.obj");  // Load a cursor
+    // Cursor* OmniCursor = new Cursor("Models/rr11.obj");  // Load a cursor
     TriMesh* cursorModel = OmniCursor->getTriMeshPointer();
     OmniCursor->setName("devCursor");  // Give it a name
 
     cursorModel->setShapeColor(0.35, 0.35, 0.35);
-    OmniCursor->scaleCursor(0.007);
+    // OmniCursor->scaleCursor(0.007);
+    OmniCursor->scaleCursor(0.01);
     OmniCursor->setRelativeShapeOrientation(0.0, 0.0, 1.0, -90.0);
+    // OmniCursor->setRelativeShapeOrientation(1.0, 0.0, 1.0, 90.0);
 
     //    OmniCursor->debugCursor(); //Use this function the view the location of the proxy inside the Cursor mesh
     DisplayObject->tell(OmniCursor);  // Tell QuickHaptics that the cursor exists
@@ -157,6 +169,8 @@ void button1DownCallback(unsigned int ShapeID) {
 }
 
 void button1UpCallback(unsigned int ShapeID) {
+    obj1->setHapticVisibility(true);
+    obj2->setHapticVisibility(true);
 }
 
 void touchCallback(unsigned int ShapeID) {
@@ -169,12 +183,10 @@ void graphicsCallback() {
     hduVector3Dd localCursorPosition;
     localCursorPosition = localDeviceCursor->getPosition();  // Get the local cursor position in World Space
     // printf("--------------------------------------------------------- %f, %f, %f\n", localCursorPosition[0], localCursorPosition[1], localCursorPosition[2]);
-
     hcurr_temp[0] = (double)localCursorPosition[0];
     hcurr_temp[1] = (double)localCursorPosition[1];
     hcurr_temp[2] = (double)localCursorPosition[2];
     ///////////////////////////////////////////////////////////////////////////////////////////////
-
     if (matrix_flag) {
         notCallibrate->setGraphicVisibility(false);
         calibInstruction->setGraphicVisibility(false);
@@ -189,6 +201,7 @@ void graphicsCallback() {
 void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata) {
     DataTransportClass* localdataObject = (DataTransportClass*)userdata;  // Typecast the pointer passed in appropriately
     static int counter1 = 0;
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////// transforming object
     Eigen::Vector3f p = (opti->rigidObjects)[1]->position;
 
@@ -226,12 +239,6 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
     double rX;
     double rY;
     double rZ;
-#pragma opm parallel
-    {
-        rX = (opti->rigidObjects)[1]->rotation[0] * 3.14159 / 180.0;
-        rY = (opti->rigidObjects)[1]->rotation[1] * 3.14159 / 180.0;
-        rZ = (opti->rigidObjects)[1]->rotation[2] * 3.14159 / 180.0;
-    }
 
     hduMatrix rZM;
     hduMatrix rYM;
@@ -241,34 +248,86 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
 
 #pragma opm parallel
     {
+        rX = (opti->rigidObjects)[1]->rotation[0] * 3.14159 / 180.0;
+        rY = (opti->rigidObjects)[1]->rotation[1] * 3.14159 / 180.0;
+        rZ = (opti->rigidObjects)[1]->rotation[2] * 3.14159 / 180.0;
+
         rZM = hduMatrix::createRotationAroundZ(rZ);
         rYM = hduMatrix::createRotationAroundY(rY);
         rXM = hduMatrix::createRotationAroundX(rX);
         rxyz = rZM * rYM * rXM;
+
+        //////////////////////////////////////////////////////////// opti to Quatrenion (nut)
+
+        Eigen::Vector3d rotation(rX, rY, rZ);
+        double angle = rotation.norm();
+        Eigen::Vector3d axis = rotation.normalized();
+        Eigen::Quaterniond q(Eigen::AngleAxisd(angle, axis));
+
+        opti_obj_q.x = q.x();
+        opti_obj_q.y = q.y();
+        opti_obj_q.z = q.z();
+        opti_obj_q.w = q.w();
     }
+    // std::cout << "-----------------------------------" << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << std::endl;
+    ////////////////////////////////////////////////////////////
 
-    localdataObject->c1->setTransform(rxyz);  // rotate the skull with the optitrack trackerocurr_temp
-
+    localdataObject->c1->setTransform(rxyz);       // rotate the skull with the optitrack trackerocurr_temp
     localdataObject->c1->setTranslation(x, z, y);  // move the skull with the optitrack tracker
-
     // localdataObject->c1->setScaleInPlace(0.3);
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // forceVec = forceField(localdataObject->c1->getTranslation(), localdataObject->c2->getTranslation(), multiplierFactor, chargeRadius);  // Calculate the force
+    //////////////////////////////////////////////////////////// hapti to Quatrenion (bolt)
+    hduMatrix rmat = localdataObject->c2->getRotation();  //////////////////// START EDITING FROM HERE
+    double rbX;
+    double rbY;
+    double rbZ;
+#pragma opm parallel
+    {
+        /*
+        getting rotation angles from rotation matrix:
 
-    // counter1++;
-    // if (counter1 > 2000)  // Make the force start after 2 seconds of program start. This is because the servo loop thread executes before the graphics thread.
-    //                       // Hence global variables set in the graphics thread will not be valid for sometime in the begining og the program
-    // {
-    //     force[0] = forceVec[0];
-    //     force[1] = forceVec[1];
-    //     force[2] = forceVec[2];
-    //     counter1 = 2001;
-    // } else {
-    force[0] = 0.0;
-    force[1] = 0.0;
-    force[2] = 0.0;
-    // }
+        R = r00, r01, r02
+            r10, r11, r12
+            r20, r21, r22
+
+        rx = atan2(r21, r22)
+        ry = atan2(-r20, sqrt(pow(r21, 2) + pow(r22, 2)))
+        rz = atan2(r10, r00)
+        */
+        rbX = std::atan2(rmat[2][1], rmat[2][2]) * 180.0 / 3.14159;
+        rbY = std::atan2(-rmat[2][0], std::sqrt(rmat[2][1] * rmat[2][1] + rmat[2][2] * rmat[2][2])) * 180.0 / 3.14159;
+        rbZ = std::atan2(rmat[1][0], rmat[0][0]) * 180.0 / 3.14159;
+
+        Eigen::Vector3d rotation(rbX, rbY, rbZ);
+        double angleBolt = rotation.norm();
+        Eigen::Vector3d axisBolt = rotation.normalized();
+        Eigen::Quaterniond qB(Eigen::AngleAxisd(angleBolt, axisBolt));
+
+        hpt_obj_q.x = q.x();
+        hpt_obj_q.y = q.y();
+        hpt_obj_q.z = q.z();
+        hpt_obj_q.w = q.w();
+    }
+    // std::cout << "====================================" << rbX << ", " << rbY << ", " << rbZ << std::endl;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma opm parallel
+    {
+        forceVec = forceField(localdataObject->c1->getTranslation(), localdataObject->c2->getTranslation(), multiplierFactor, chargeRadius);  // Calculate the force
+    }
+    counter1++;
+    if (counter1 > 2000)  // Make the force start after 2 seconds of program start. This is because the servo loop thread executes before the graphics thread.
+                          // Hence global variables set in the graphics thread will not be valid for sometime in the begining og the program
+    {
+        force[0] = forceVec[0];
+        force[1] = forceVec[1];
+        force[2] = forceVec[2];
+        counter1 = 2001;
+    } else {
+        force[0] = 0.0;
+        force[1] = 0.0;
+        force[2] = 0.0;
+    }
 }
 
 /******************************************************************************

@@ -1,6 +1,6 @@
-INCLUDE=-I../../include -I/usr/include/QH #-I$(IMGUI_DIR)/include -I$(IMGUI_DIR)/backends
+INCLUDE=-I../../include -I/usr/include/QH -I/reactphysics3d #-I$(IMGUI_DIR)/include -I$(IMGUI_DIR)/backends
 LIBS=-L../../lib
-LDFLAGS=-lNatNet -ldl -lpthread -lgomp -lQHGLUTWrapper -lQH -lHL -lHLU -lHDU -lHD -lGL -lGLU -lglut -lrt -lncurses -lz -lstdc++ -lm
+LDFLAGS=-lNatNet -ldl -lpthread -lgomp -lQHGLUTWrapper -lQH -lHL -lHLU -lHDU -lHD -lGL -lGLU -lglut -lrt -lncurses -lz -lstdc++ -lm -lreactphysics3d
 CXXFLAGS=-fopenmp #-std=c++11 -W -g -DNDEBUG -Dlinux -g -Wall -Wformat
 TARGET=main
 #IMGUI_DIR=imgui
