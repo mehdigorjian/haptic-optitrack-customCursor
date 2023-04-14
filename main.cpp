@@ -91,9 +91,9 @@ void physics(int argc, char** argv) {
     reactphysics3d::PhysicsCommon physicsCommon;
     reactphysics3d::PhysicsWorld* world = physicsCommon.createPhysicsWorld();
 
-    reactphysics3d::Vector3 opti_obj_pos_init(0.0, 0.0, 0.0);
-    reactphysics3d::Vector3 hpti_obj_pos_init(50.0, 0.0, 0.0);
-    reactphysics3d::Quaternion orientation_init = reactphysics3d::Quaternion::identity();
+    // reactphysics3d::Vector3 opti_obj_pos_init(0.0, 0.0, 0.0);
+    // reactphysics3d::Vector3 hpti_obj_pos_init(50.0, 0.0, 0.0);
+    // reactphysics3d::Quaternion orientation_init = reactphysics3d::Quaternion::identity();
 
     // reactphysics3d::Transform transform_opti_obj(opti_obj_pos_init, orientation_init);
     // reactphysics3d::Transform transform_hpti_obj(hpti_obj_pos_init, orientation_init);
