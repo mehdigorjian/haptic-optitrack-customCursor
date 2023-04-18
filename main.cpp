@@ -39,16 +39,18 @@ std::shared_ptr<OptiTrack> opti = std::make_shared<OptiTrack>();
 
 TriMesh* obj1 = nullptr;
 TriMesh* obj2 = nullptr;
+TriMesh* obj2_shadow = nullptr;
 
 Text* notCallibrate = nullptr;
 Text* calibInstruction = nullptr;
 ////////////////////////////// physics engine
-reactphysics3d::Vector3 updated_opti_obj_pos;
-reactphysics3d::Vector3 updated_hpti_obj_pos;
+reactphysics3d::Vector3 updated_opti_obj_pos(0.0, 0.0, 0.0);
+reactphysics3d::Vector3 updated_hpti_obj_pos(0.0, 0.0, 0.0);
 
 reactphysics3d::Quaternion opti_obj_q;
 reactphysics3d::Quaternion hpti_obj_q;
 bool isOverlap;
+static float f_decay_count = 1.0f;
 //////////////////////////////
 
 class DataTransportClass  // This class carried data into the ServoLoop thread
@@ -56,6 +58,7 @@ class DataTransportClass  // This class carried data into the ServoLoop thread
    public:
     TriMesh* c1;
     TriMesh* c2;
+    TriMesh* c2_shadow;
 };
 
 double chargeRadius = 15.0;  // This variable defines the radius around the charge when the inverse square law changes to a spring force law.
@@ -111,7 +114,7 @@ void physics(int argc, char** argv) {
     reactphysics3d::SphereShape* sphereShape2 = physicsCommon.createSphereShape(radius2);
     reactphysics3d::Collider* collider2 = body2->addCollider(sphereShape2, transform_hpti_obj);
 
-    const reactphysics3d::decimal timeStep = 1.0f;  // / 60.0f;
+    const reactphysics3d::decimal timeStep = 1.0f / 1000.0f;
     while (true) {
         // for (int i = 0; i < 1000; i++) {
         world->update(timeStep);
@@ -172,6 +175,23 @@ void glut_main(int argc, char** argv) {
     dataObject.c2->setFriction(0.0, 0.9);
     dataObject.c2->setMass(0.9);
     DisplayObject->tell(dataObject.c2);  // Tell quickhaptics that cube exists
+
+    // Load cube2-shadow model //////////////////////////////////////////////////////////////////////////
+    dataObject.c2_shadow = new TriMesh("Models/sp11.obj");
+    obj2_shadow = dataObject.c2_shadow;
+    dataObject.c2_shadow->setName("cube2");
+    dataObject.c2_shadow->setShapeColor(1.0, 0.0, 0.0);
+    dataObject.c2_shadow->setRotation(hduVector3Dd(1.0, 0.0, 0.0), 45.0);
+    dataObject.c2_shadow->setTranslation(hduVector3Dd(50.0, 0.0, 0.0));
+    dataObject.c2_shadow->setHapticVisibility(false);
+    dataObject.c2_shadow->setGraphicVisibility(false);
+
+    dataObject.c2_shadow->setStiffness(0.6);
+    dataObject.c2_shadow->setDamping(0.1);
+    dataObject.c2_shadow->setFriction(0.0, 0.9);
+    dataObject.c2_shadow->setMass(0.9);
+    DisplayObject->tell(dataObject.c2_shadow);  // Tell quickhaptics that cube exists
+    // //////////////////////////////////////////////////////////////////////////////////////////////////
 
     Text* text1 = new Text(20.0, "System Not Callibrated!", 0.15, 0.9);
     notCallibrate = text1;
@@ -248,6 +268,13 @@ void graphicsCallback() {
         notCallibrate->setGraphicVisibility(false);
         calibInstruction->setGraphicVisibility(false);
     }
+    if (isOverlap) {
+        obj2_shadow->setGraphicVisibility(true);
+        obj2->setGraphicVisibility(false);
+    } else {
+        obj2_shadow->setGraphicVisibility(false);
+        obj2->setGraphicVisibility(true);
+    }
 }
 
 /***************************************************************************************
@@ -258,7 +285,6 @@ void graphicsCallback() {
 void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata) {
     DataTransportClass* localdataObject = (DataTransportClass*)userdata;  // Typecast the pointer passed in appropriately
     static int counter1 = 0;
-
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////// transforming object
     Eigen::Vector3f p = (opti->rigidObjects)[1]->position;
 
@@ -284,7 +310,7 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
             // std::cout << t->transformMat << std::endl;
             // std::cout << "----------Error----------" << std::endl;
             double ee = t->errorCalculation();
-            std::cout << ">>>>>>>>>>ERROR: " << ee << std::endl;
+            std::cout << ">>>>>>>>>>>>>>>>>>>> Error: " << ee << std::endl;
         }
     }
 
@@ -381,8 +407,11 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
         updated_hpti_obj_pos[1] = hy;
         updated_hpti_obj_pos[2] = hz;
 
+        localdataObject->c2_shadow->setTransform(rmat);
+        localdataObject->c2_shadow->setTranslation(h_pos);
+
         double dist = std::sqrt(std::pow((opti_to_hapt[0] - hx), 2) + std::pow((opti_to_hapt[1] - hy), 2) + std::pow((opti_to_hapt[2] - hz), 2));
-        std::cout << "-----------------------dist: " << dist << std::endl;
+        // std::cout << "-----------------------dist: " << dist << std::endl;
     }
     // std::cout << "====================================O" << updated_opti_obj_pos[0] << " " << updated_opti_obj_pos[1] << " " << updated_opti_obj_pos[2] << std::endl;
     // std::cout << "------------------------------------H" << updated_hpti_obj_pos[0] << " " << updated_hpti_obj_pos[1] << " " << updated_hpti_obj_pos[2] << std::endl;
@@ -397,13 +426,16 @@ void HLCALLBACK computeForceCB(HDdouble force[3], HLcache* cache, void* userdata
         HDdouble nominalMaxContinuousForce;
         hdGetDoublev(HD_NOMINAL_MAX_CONTINUOUS_FORCE, &nominalMaxContinuousForce);
         if (isOverlap) {
-            force[0] = nominalMaxContinuousForce;
-            force[1] = nominalMaxContinuousForce;
-            force[2] = nominalMaxContinuousForce;
+            f_decay_count += 0.000005;
+            force[0] = nominalMaxContinuousForce * 1.0 / f_decay_count;
+            force[1] = nominalMaxContinuousForce * 1.0 / f_decay_count;
+            force[2] = nominalMaxContinuousForce * 1.0 / f_decay_count;
+            if (f_decay_count > 3000) f_decay_count = 1.0;
         } else {
             force[0] = 0.0;
             force[1] = 0.0;
             force[2] = 0.0;
+            f_decay_count = 1.0;
         }
 
         // forceVec = overlapCheck(body1, body2);
